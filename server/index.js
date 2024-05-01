@@ -42,7 +42,7 @@ connectToMongoDB();
 // createUser(10);
 // createSingleChats(10);
 // createMessages(10);
-createMessagesInAChat('6631e6a4022aa5afdd44e0c9',10);
+// createMessagesInAChat('6631e6a4022aa5afdd44e0c9',10);
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

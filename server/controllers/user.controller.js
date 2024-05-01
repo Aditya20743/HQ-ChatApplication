@@ -12,24 +12,25 @@ import { ErrorHandler } from "../utils/utility.js";
 
 // Create a new user and save it to the database and save token in cookie
 const newUser = TryCatch(async (req, res, next) => {
-  const { name, username, password } = req.body;
+  const { email, name, username, password } = req.body;
 
-  const file = req.file;
+//   const file = req.file;
 
 //   if (!file) return next(new ErrorHandler("Please Upload Avatar"));
 
-  const result = await uploadFilesToCloudinary([file]);
+//   const result = await uploadFilesToCloudinary([file]);
 
-  const avatar = {
-    public_id: result[0].public_id,
-    url: result[0].url,
-  };
+//   const avatar = {
+//     public_id: result[0].public_id,
+//     url: result[0].url,
+//   };
 
   const user = await User.create({
+    email,
     name,
     username,
     password,
-    avatar,
+    // avatar,
   });
 
   sendToken(res, user, 201, "User created");
@@ -90,10 +91,51 @@ const searchUser = TryCatch(async (req, res) => {
   });
 });
 
+// Controller to update user status
+const updateUserStatus = TryCatch(async (req, res, next) => {
+    const { userId } = req.params; 
+    const { newStatus } = req.body;
+    console.log(req.params);
+    console.log(req.body);
+    
+    if (!userId || !newStatus) {
+      return next(new ErrorHandler("User ID and new status are required", 400));
+    }
+  
+    // Validate new status
+    if (!['Available', 'Busy'].includes(newStatus)) {
+      return next(new ErrorHandler("Invalid status. Must be 'Available' or 'Busy'", 400));
+    }
+  
+    try {
+      const user = await User.findById(userId);
+  
+      if (!user) {
+        return next(new ErrorHandler("User not found", 404));
+      }
+  
+      // Update user status
+      user.status = newStatus;
+      await user.save();
+  
+      res.status(200).json({
+        success: true,
+        message: "User status updated successfully",
+        user: {
+          _id: user._id,
+          name: user.name,
+          status: user.status,
+        },
+      });
+    } catch (error) {
+      return next(new ErrorHandler(error.message, 500));
+    }
+});
 
 export {
   login,
   logout,
   newUser,
-  searchUser
+  searchUser,
+  updateUserStatus
 };

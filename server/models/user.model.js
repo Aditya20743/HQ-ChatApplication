@@ -1,5 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
-import { hash } from "bcrypt";
+import bcrypt  from "bcrypt";
 
 const schema = new Schema(
   {
@@ -12,6 +12,11 @@ const schema = new Schema(
       required: true,
       unique: true,
     },
+    email:{
+        type:String,
+        required: true,
+        unique: true
+    },
     password: {
       type: String,
       required: true,
@@ -20,23 +25,36 @@ const schema = new Schema(
     avatar: {
       public_id: {
         type: String,
-        required: true,
+        // required: true,
       },
       url: {
         type: String,
-        required: true,
+        // required: true,
       },
     },
+    status:{
+        type: String,
+        enum: ['Available', 'Busy'],
+        default: 'Available',
+    }
   },
   {
     timestamps: true,
   }
 );
 
-schema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-
-  this.password = await hash(this.password, 3);
+schema.pre('save', async function(next){
+    if(this.isModified('password')){
+        const salt = await bcrypt.genSalt(3);
+        this.password = await bcrypt.hash(this.password, salt);
+    }
+    next();
 });
+
+// Method to update user status
+schema.methods.updateStatus = async function(newStatus) {
+    this.status = newStatus;
+    await this.save();
+};
 
 export const User = mongoose.models.User || model("User", schema);

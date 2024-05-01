@@ -25,12 +25,12 @@ app.post(
   sendAttachmentsValidator(),
   validateHandler,
   sendAttachments
-);
+);   // remaining
 
 // Get Messages
 app.get("/message/:id", chatIdValidator(), validateHandler, getMessages);
 
 // Get Chat Details
-app.get("/:id",chatIdValidator(), validateHandler, getChatDetails);
+app.get("/:id", chatIdValidator(), validateHandler, getChatDetails);
 
 export default app;
