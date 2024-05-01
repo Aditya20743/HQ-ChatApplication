@@ -1,5 +1,5 @@
 import express from "express";
-import { connectDB } from "./utils/features.js";
+import { connectToMongoDB } from "./utils/features.js";
 import dotenv from "dotenv";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 import cookieParser from "cookie-parser";
@@ -23,17 +23,26 @@ import { socketAuthenticator } from "./middlewares/auth.middleware.js";
 import userRoute from "./routes/user.route.js";
 import chatRoute from "./routes/chat.route.js";
 
+import { createUser } from "./seeders/user.seeder.js";
+import { createMessages } from "./seeders/chat.seeder.js";
+import { createSingleChats } from "./seeders/chat.seeder.js";
+import { createMessagesInAChat } from "./seeders/chat.seeder.js";
+
 dotenv.config({
   path: "./.env",
 });
 
-const mongoURI = process.env.MONGO_URI;
 const port = process.env.PORT || 3000;
 const envMode = process.env.NODE_ENV.trim() || "PRODUCTION";
 const userSocketIDs = new Map();
 const onlineUsers = new Set();
 
-connectDB(mongoURI);
+connectToMongoDB();
+
+// createUser(10);
+// createSingleChats(10);
+// createMessages(10);
+createMessagesInAChat('6631e6a4022aa5afdd44e0c9',10);
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

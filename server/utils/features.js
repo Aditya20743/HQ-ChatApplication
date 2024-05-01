@@ -11,13 +11,13 @@ const cookieOptions = {
   secure: true,
 };
 
-const connectDB = (uri) => {
-  mongoose
-    .connect(uri, { dbName: "Chat" })
-    .then((data) => console.log(`Connected to DB: ${data.connection.host}`))
-    .catch((err) => {
-      throw err;
-    });
+const connectToMongoDB = async () => {
+	try {
+		await mongoose.connect(process.env.MONGO_URI);
+		console.log("Connected to MongoDB");
+	} catch (error) {
+		console.log("Error connecting to MongoDB", error.message);
+	}
 };
 
 const sendToken = (res, user, code, message) => {
@@ -68,7 +68,7 @@ const uploadFilesToCloudinary = async (files = []) => {
 
 
 export {
-  connectDB,
+  connectToMongoDB,
   sendToken,
   cookieOptions,
   emitEvent,
