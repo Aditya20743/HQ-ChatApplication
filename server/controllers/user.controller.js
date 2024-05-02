@@ -95,8 +95,8 @@ const searchUser = TryCatch(async (req, res) => {
 const updateUserStatus = TryCatch(async (req, res, next) => {
     const { userId } = req.params; 
     const { newStatus } = req.body;
-    console.log(req.params);
-    console.log(req.body);
+    // console.log(req.params);
+    // console.log(req.body);
     
     if (!userId || !newStatus) {
       return next(new ErrorHandler("User ID and new status are required", 400));
@@ -132,10 +132,28 @@ const updateUserStatus = TryCatch(async (req, res, next) => {
     }
 });
 
+const getUserStatus = async (userId) => {
+    try {
+      // Find the user by their ID
+      const user = await User.findById(userId);
+      
+      // If user not found, return 'BUSY' status
+      if (!user) {
+        return 'BUSY';
+      }
+
+      return user.status;
+    } catch (error) {
+      console.error("Error while getting user status:", error);
+      return 'BUSY'; 
+    }
+  };
+
 export {
   login,
   logout,
   newUser,
   searchUser,
-  updateUserStatus
+  updateUserStatus,
+  getUserStatus
 };

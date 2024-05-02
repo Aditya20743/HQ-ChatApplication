@@ -23,10 +23,8 @@ import { socketAuthenticator } from "./middlewares/auth.middleware.js";
 import userRoute from "./routes/user.route.js";
 import chatRoute from "./routes/chat.route.js";
 
-import { createUser } from "./seeders/user.seeder.js";
-import { createMessages } from "./seeders/chat.seeder.js";
-import { createSingleChats } from "./seeders/chat.seeder.js";
-import { createMessagesInAChat } from "./seeders/chat.seeder.js";
+import { getUserStatus } from "./controllers/user.controller.js";
+import { getLLMResponse } from "./utils/features.js";
 
 dotenv.config({
   path: "./.env",
@@ -61,7 +59,8 @@ app.set("io", io);
 // Using Middlewares Here
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors(corsOptions));
+// app.use(cors(corsOptions));
+app.use(cors())
 
 app.use("/api/v1/user", userRoute);
 app.use("/api/v1/chat", chatRoute);
@@ -79,57 +78,111 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  const user = socket.user;
-  userSocketIDs.set(user._id.toString(), socket.id);
-
-  socket.on(NEW_MESSAGE, async ({ chatId, members, message }) => {
-    const messageForRealTime = {
-      content: message,
-      _id: uuid(),
-      sender: {
-        _id: user._id,
-        name: user.name,
-      },
-      chat: chatId,
-      createdAt: new Date().toISOString(),
-    };
-
-    const messageForDB = {
-      content: message,
-      sender: user._id,
-      chat: chatId,
-    };
-
-    const membersSocket = getSockets(members);
-    io.to(membersSocket).emit(NEW_MESSAGE, {
-      chatId,
-      message: messageForRealTime,
+    const user = socket.user;
+    userSocketIDs.set(user._id.toString(), socket.id);
+    onlineUsers.add(user._id.toString());
+  
+    socket.on(NEW_MESSAGE, async ({ chatId, members, message }) => {
+      const recipientId = members.find(member => member !== user._id.toString());
+      const recipientSocketId = userSocketIDs.get(recipientId);
+  
+      if (!recipientSocketId) {
+        // Recipient is not online
+        socket.emit(NEW_MESSAGE, { chatId, message: "Recipient is currently offline" });
+        return;
+      }
+  
+      const recipientStatus = await getUserStatus(recipientId); 
+      // console.log(recipientStatus);
+      
+      const messageForRealTime = {
+        content: message,
+        _id: uuid(),
+        sender: {
+          _id: user._id,
+          name: user.name,
+        },
+        chat: chatId,
+        createdAt: new Date().toISOString(),
+      };
+  
+      const messageForDB = {
+        content: message,
+        sender: user._id,
+        chat: chatId,
+      };
+  
+      const membersSocket = getSockets(members);
+      io.to(membersSocket).emit(NEW_MESSAGE, {
+        chatId,
+        message: messageForRealTime,
+      });
+      io.to(membersSocket).emit(NEW_MESSAGE_ALERT, { chatId });
+  
+      if (recipientStatus === 'Busy') {
+        // console.log("working");
+        // Recipient is busy, generate response from language model API
+        let response = "";
+  
+        try {
+            response = await Promise.race([
+                getLLMResponse(message), // Call the language model API
+                new Promise((resolve) => {
+                    // Create a timeout that resolves after 10 seconds
+                    setTimeout(() => {
+                        resolve("Recipient is currently unavailable");
+                    }, 10000); // 10 seconds timeout
+                })
+            ]);
+        } catch (error) {
+            console.error("Error generating response from LLM:", error);
+            response = "Recipient is currently unavailable";
+        }
+        // console.log(response);
+        // Emit the response to the sender
+        const messageForRealTime = {
+          content: response,
+          _id: uuid(),
+          sender: {
+            _id: recipientId,
+            name: "Generated",
+          },
+          chat: chatId,
+          createdAt: new Date().toISOString(),
+        };
+  
+        const membersSocket = getSockets(members);
+        io.to(membersSocket).emit(NEW_MESSAGE, {
+          chatId,
+          message: messageForRealTime,
+        });
+        io.to(membersSocket).emit(NEW_MESSAGE_ALERT, { chatId });
+        // return;
+      }
+  
+      try {
+        await Message.create(messageForDB);
+      } catch (error) {
+        throw new Error(error);
+      }
     });
-    io.to(membersSocket).emit(NEW_MESSAGE_ALERT, { chatId });
+  
+    socket.on(START_TYPING, ({ members, chatId }) => {
+      const membersSockets = getSockets(members);
+      socket.to(membersSockets).emit(START_TYPING, { chatId });
+    });
+  
+    socket.on(STOP_TYPING, ({ members, chatId }) => {
+      const membersSockets = getSockets(members);
+      socket.to(membersSockets).emit(STOP_TYPING, { chatId });
+    });
 
-    try {
-      await Message.create(messageForDB);
-    } catch (error) {
-      throw new Error(error);
-    }
+    socket.on("disconnect", () => {
+      userSocketIDs.delete(user._id.toString());
+      onlineUsers.delete(user._id.toString());
+      socket.broadcast.emit(ONLINE_USERS, Array.from(onlineUsers));
+    });
   });
-
-  socket.on(START_TYPING, ({ members, chatId }) => {
-    const membersSockets = getSockets(members);
-    socket.to(membersSockets).emit(START_TYPING, { chatId });
-  });
-
-  socket.on(STOP_TYPING, ({ members, chatId }) => {
-    const membersSockets = getSockets(members);
-    socket.to(membersSockets).emit(STOP_TYPING, { chatId });
-  });
-
-  socket.on("disconnect", () => {
-    userSocketIDs.delete(user._id.toString());
-    onlineUsers.delete(user._id.toString());
-    socket.broadcast.emit(ONLINE_USERS, Array.from(onlineUsers));
-  });
-});
 
 app.use(errorMiddleware);
 

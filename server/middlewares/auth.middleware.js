@@ -21,7 +21,7 @@ const socketAuthenticator = async (err, socket, next) => {
     if (err) return next(err);
 
     const authToken = socket.request.cookies[CHAT_TOKEN];
-
+    console.log(CHAT_TOKEN)
     if (!authToken)
       return next(new ErrorHandler("Please login to access this route", 401));
 

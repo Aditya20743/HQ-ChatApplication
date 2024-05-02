@@ -3,6 +3,9 @@ import jwt from "jsonwebtoken";
 import { v4 as uuid } from "uuid";
 import { v2 as cloudinary } from "cloudinary";
 import { getBase64, getSockets } from "../lib/helper.js";
+import OpenAI from "openai";
+import dotenv from "dotenv";
+
 
 const cookieOptions = {
   maxAge: 15 * 24 * 60 * 60 * 1000,
@@ -66,11 +69,41 @@ const uploadFilesToCloudinary = async (files = []) => {
   }
 };
 
+const deletFilesFromCloudinary = async (public_ids) => {
+  // Delete files from cloudinary
+};
+
+const openai = new OpenAI({
+  apiKey:process.env.GPT_KEY
+});
+
+const getLLMResponse = (prompt) => {
+  return new Promise(async (resolve) => {
+      try {
+          const response = await openai.chat.completions.create({
+              model: "gpt-3.5-turbo",
+              messages: [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+              ]
+          });
+          resolve(JSON.stringify(response.choices[0].message));
+      } catch (error) {
+          console.error("Error generating response from LLM:", error);
+          setTimeout(() => {
+              resolve("Recipient is currently unavailable");
+          }, 15000);
+          
+      }
+  });
+};
 
 export {
   connectToMongoDB,
   sendToken,
   cookieOptions,
   emitEvent,
+  deletFilesFromCloudinary,
   uploadFilesToCloudinary,
+  getLLMResponse
 };
